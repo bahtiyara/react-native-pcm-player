@@ -1,37 +1,21 @@
-import { useEvent } from 'expo';
-import ReactNativePcmPlayer, { ReactNativePcmPlayerView } from 'react-native-pcm-player';
-import { Button, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { useEvent } from "expo";
+import ReactNativePcmPlayer from "react-native-pcm-player";
+import { SafeAreaView, ScrollView, Text, View } from "react-native";
+import { useEffect } from "react";
 
 export default function App() {
-  const onChangePayload = useEvent(ReactNativePcmPlayer, 'onChange');
+  const { status } = useEvent(ReactNativePcmPlayer, "onStatus") ?? {};
+
+  useEffect(() => {
+    ReactNativePcmPlayer.enqueuePcm("asdf");
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.container}>
         <Text style={styles.header}>Module API Example</Text>
-        <Group name="Constants">
-          <Text>{ReactNativePcmPlayer.PI}</Text>
-        </Group>
-        <Group name="Functions">
-          <Text>{ReactNativePcmPlayer.hello()}</Text>
-        </Group>
-        <Group name="Async functions">
-          <Button
-            title="Set value"
-            onPress={async () => {
-              await ReactNativePcmPlayer.setValueAsync('Hello from JS!');
-            }}
-          />
-        </Group>
         <Group name="Events">
-          <Text>{onChangePayload?.value}</Text>
-        </Group>
-        <Group name="Views">
-          <ReactNativePcmPlayerView
-            url="https://www.example.com"
-            onLoad={({ nativeEvent: { url } }) => console.log(`Loaded: ${url}`)}
-            style={styles.view}
-          />
+          <Text>{status}</Text>
         </Group>
       </ScrollView>
     </SafeAreaView>
@@ -58,13 +42,13 @@ const styles = {
   },
   group: {
     margin: 20,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 10,
     padding: 20,
   },
   container: {
     flex: 1,
-    backgroundColor: '#eee',
+    backgroundColor: "#eee",
   },
   view: {
     flex: 1,

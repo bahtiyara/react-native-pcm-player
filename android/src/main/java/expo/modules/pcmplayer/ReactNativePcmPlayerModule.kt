@@ -4,9 +4,9 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import android.util.Base64
 
-class PcmPlayerModule : Module() {
+class ReactNativePcmPlayerModule : Module() {
     override fun definition() = ModuleDefinition {
-        Name("PcmPlayerModule")
+        Name("ReactNativePcmPlayer")
 
         Events("onMessage")
         Events("onStatus")

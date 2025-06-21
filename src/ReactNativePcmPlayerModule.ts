@@ -2,7 +2,7 @@ import { NativeModule, requireNativeModule } from "expo";
 import { ReactNativePcmPlayerModuleEvents } from "./ReactNativePcmPlayer.types";
 
 declare class ReactNativePcmPlayerModule extends NativeModule<ReactNativePcmPlayerModuleEvents> {
-  enqueuePcm(base64Data: string): Promise<void>;
+  enqueuePcm(base64Data: string): void;
   stopCurrentPcm(): void;
   markAsEnded(): void;
 }
