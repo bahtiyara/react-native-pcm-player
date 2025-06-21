@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android", "web"],
+  "apple": {
+    "modules": ["ReactNativePcmPlayerModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.pcmplayer.ReactNativePcmPlayerModule"]
+  }
+}

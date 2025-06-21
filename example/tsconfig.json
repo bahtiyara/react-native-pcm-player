@@ -1,0 +1,10 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "react-native-pcm-player": ["../src/index"],
+      "react-native-pcm-player/*": ["../src/*"]
+    }
+  }
+}
