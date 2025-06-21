@@ -1,19 +1,12 @@
-import type { StyleProp, ViewStyle } from 'react-native';
-
-export type OnLoadEventPayload = {
-  url: string;
-};
-
 export type ReactNativePcmPlayerModuleEvents = {
-  onChange: (params: ChangeEventPayload) => void;
+  onMessage: (params: LogEventPayload) => void;
+  onStatus: (params: StatusEventPayload) => void;
 };
 
-export type ChangeEventPayload = {
-  value: string;
+type LogEventPayload = {
+  message: string;
 };
 
-export type ReactNativePcmPlayerViewProps = {
-  url: string;
-  onLoad: (event: { nativeEvent: OnLoadEventPayload }) => void;
-  style?: StyleProp<ViewStyle>;
+type StatusEventPayload = {
+  status: "listening";
 };
