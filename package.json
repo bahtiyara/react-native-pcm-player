@@ -1,6 +1,6 @@
 {
   "name": "react-native-pcm-player",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "For streaming audio in pcm format in react native",
   "main": "build/index.js",
   "types": "build/index.d.ts",
@@ -31,13 +31,13 @@
   "dependencies": {},
   "devDependencies": {
     "@types/react": "~19.0.0",
-    "expo-module-scripts": "^4.1.6",
-    "expo": "~53.0.0",
-    "react-native": "0.79.1"
+    "expo-module-scripts": "^3.5.2",
+    "expo": "^52.0.0",
+    "react-native": "^0.76.7"
   },
   "peerDependencies": {
-    "expo": "*",
+    "expo": "^52.0.0",
     "react": "*",
-    "react-native": "*"
+    "react-native": "^0.76.7"
   }
 }
