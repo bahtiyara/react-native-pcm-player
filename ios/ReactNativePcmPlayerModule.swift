@@ -1,7 +1,7 @@
 import ExpoModulesCore
 
 public class ReactNativePcmPlayerModule: Module {
-  public override func definition() -> ModuleDefinition {
+  public func definition() -> ModuleDefinition {
     Name("ReactNativePcmPlayer")
 
     Events("onMessage", "onStatus")
