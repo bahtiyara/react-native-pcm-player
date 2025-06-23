@@ -84,7 +84,9 @@ import AVFoundation
           }
           if self.bufferQueue.isEmpty {
             print("No more data, exiting playback")
-            break
+            self.isPlaying = false
+            onStatus("listening")
+            return
           }
         }
 
