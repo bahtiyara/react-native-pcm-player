@@ -131,14 +131,17 @@ public class ReactNativePcmPlayerModule: Module {
     let frameCount = UInt32(data.count) / 2
     guard let format = audioPlayerNode?.outputFormat(forBus: 0),
           let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
-      return nil
+        return nil
     }
 
     buffer.frameLength = frameCount
-    let channels = buffer.int16ChannelData!
+    let channels = buffer.floatChannelData![0]
+
     data.withUnsafeBytes { (ptr: UnsafeRawBufferPointer) in
-      let src = ptr.bindMemory(to: Int16.self)
-      channels[0].assign(from: src.baseAddress!, count: Int(frameCount))
+        let src = ptr.bindMemory(to: Int16.self)
+        for i in 0..<Int(frameCount) {
+            channels[i] = Float(src[i]) / Float(Int16.max)
+        }
     }
 
     return buffer
