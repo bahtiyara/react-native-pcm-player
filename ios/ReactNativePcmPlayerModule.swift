@@ -82,7 +82,7 @@ public class ReactNativePcmPlayerModule: Module {
     engine.attach(playerNode)
 
     let format = AVAudioFormat(
-      commonFormat: .pcmFormatInt16,
+      commonFormat: .pcmFormatFloat32,
       sampleRate: 24000,
       channels: 1,
       interleaved: true
