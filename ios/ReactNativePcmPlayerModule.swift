@@ -112,9 +112,8 @@ public class ReactNativePcmPlayerModule: Module {
           if self.bufferQueue.isEmpty {
             print("No more data, exiting playback")
             self.isPlaying = false
-            onStatus("listening")
-            return
           }
+          return
         }
 
         let data = self.bufferQueue.removeFirst()
