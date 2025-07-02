@@ -2,165 +2,149 @@ import ExpoModulesCore
 import AVFoundation
 
 public class ReactNativePcmPlayerModule: Module {
-  public func definition() -> ModuleDefinition {
-    Name("ReactNativePcmPlayer")
+    public func definition() -> ModuleDefinition {
+        Name("ReactNativePcmPlayer")
 
-    Events("onMessage", "onStatus")
+        Events("onMessage", "onStatus")
 
-    Function("enqueuePcm") { (base64Data: String) in
-      if let data = Data(base64Encoded: base64Data) {
-        CurrentAudioPlayer.shared.enqueuePcmData(data) { status in
-          self.sendEvent("onStatus", [
-            "status": status
-          ])
+        Function("enqueuePcm") { (base64Data: String) in
+            if let data = Data(base64Encoded: base64Data) {
+                CurrentAudioPlayer.shared.enqueuePcmData(data) { status in
+                    self.sendEvent("onStatus", ["status": status])
+                }
+            }
         }
-      }
-    }
 
-    Function("stopCurrentPcm") {
-      CurrentAudioPlayer.shared.stopAndRelease()
-    }
+        Function("stopCurrentPcm") {
+            CurrentAudioPlayer.shared.stopAndRelease()
+        }
 
-    Function("markAsEnded") {
-      CurrentAudioPlayer.shared.markAsEnded()
+        Function("markAsEnded") {
+            CurrentAudioPlayer.shared.markAsEnded()
+        }
     }
-  }
 }
 
-@objc class CurrentAudioPlayer: NSObject {
-  static let shared = CurrentAudioPlayer()
+class CurrentAudioPlayer {
+    static let shared = CurrentAudioPlayer()
 
-  private var audioEngine: AVAudioEngine?
-  private var audioPlayerNode: AVAudioPlayerNode?
-  private let pcmQueue = DispatchQueue(label: "pcm.queue", qos: .userInitiated)
-  private var bufferQueue = [Data]()
-  private var isPlaying = false
-  private var hasEnded = false
-  private let minBufferBytes = 50_000
+    private let engine = AVAudioEngine()
+    private let playerNode = AVAudioPlayerNode()
+    private let pcmQueue = DispatchQueue(label: "pcmQueue")
+    private var bufferQueue = [Data]()
+    private var isPlaying = false
+    private var hasEnded = false
+    private let minBufferBytes = 50_000
 
-  func enqueuePcmData(_ data: Data, onStatus: @escaping (String) -> Void) {
-    pcmQueue.async {
-      self.bufferQueue.append(data)
+    private init() {}
 
-      if !self.isPlaying {
-        self.isPlaying = true
-        self.hasEnded = false
-        print("Starting new playback")
-        Task {
-          await self.waitForBuffer()
-          self.startAudioEngine()
-          self.writeLoop(onStatus: onStatus)
-        }
-      }
-    }
-  }
+    func enqueuePcmData(_ data: Data, onStatus: @escaping (String) -> Void) {
+        pcmQueue.async {
+            self.bufferQueue.append(data)
 
-  func markAsEnded() {
-    print("Marking as ended")
-    pcmQueue.async {
-      self.hasEnded = true
-    }
-  }
-
-  func stopAndRelease() {
-    print("Stop requested")
-    pcmQueue.async {
-      self.stopInternal()
-    }
-  }
-
-  private func waitForBuffer() async {
-    print("Waiting for prebuffer...")
-    while getQueueSizeInBytes() < minBufferBytes && !hasEnded {
-      try? await Task.sleep(nanoseconds: 10_000_000)
-    }
-  }
-
-  private func startAudioEngine() {
-    let engine = AVAudioEngine()
-    let playerNode = AVAudioPlayerNode()
-    engine.attach(playerNode)
-
-    let format = AVAudioFormat(
-      commonFormat: .pcmFormatFloat32,
-      sampleRate: 24000,
-      channels: 1,
-      interleaved: true
-    )!
-
-    engine.connect(playerNode, to: engine.mainMixerNode, format: format)
-
-    do {
-      try engine.start()
-      playerNode.play()
-      self.audioEngine = engine
-      self.audioPlayerNode = playerNode
-      print("AudioEngine started")
-    } catch {
-      print("Error starting audio engine: \(error)")
-    }
-  }
-
-  private func writeLoop(onStatus: @escaping (String) -> Void) {
-    Task.detached {
-      while self.isPlaying {
-        guard !self.bufferQueue.isEmpty else {
-          for _ in 0..<100 {
-            try? await Task.sleep(nanoseconds: 10_000_000)
-            if !self.bufferQueue.isEmpty { break }
-          }
-          if self.bufferQueue.isEmpty {
-            print("No more data, exiting playback")
-            self.isPlaying = false
-          }
-          return
-        }
-
-        let data = self.bufferQueue.removeFirst()
-        if let buffer = self.pcmBuffer(from: data) {
-          self.audioPlayerNode?.scheduleBuffer(buffer, completionHandler: nil)
-        }
-      }
-
-      self.stopInternal()
-      onStatus("listening")
-    }
-  }
-
-  private func pcmBuffer(from data: Data) -> AVAudioPCMBuffer? {
-    let frameCount = UInt32(data.count) / 2
-    guard let format = audioPlayerNode?.outputFormat(forBus: 0),
-          let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
-        return nil
-    }
-
-    buffer.frameLength = frameCount
-    let channels = buffer.floatChannelData![0]
-
-    data.withUnsafeBytes { (ptr: UnsafeRawBufferPointer) in
-        let src = ptr.bindMemory(to: Int16.self)
-        for i in 0..<Int(frameCount) {
-            channels[i] = Float(src[i]) / Float(Int16.max)
+            if !self.isPlaying {
+                self.isPlaying = true
+                print("Starting new playback")
+                Task {
+                    do {
+                        try await self.waitForBuffer()
+                        try await self.startAudioEngine()
+                        await self.writeLoop()
+                    } catch {
+                        print("Playback error: \(error.localizedDescription)")
+                    }
+                    self.stopInternal()
+                    onStatus("listening")
+                }
+            }
         }
     }
 
-    return buffer
-  }
+    func markAsEnded() {
+        print("Marking as ended")
+        pcmQueue.async {
+            self.hasEnded = true
+        }
+    }
 
-  private func stopInternal() {
-    print("Cleaning up player")
-    audioPlayerNode?.stop()
-    audioEngine?.stop()
-    audioEngine?.reset()
+    func stopAndRelease() {
+        print("Stop requested from JS")
+        pcmQueue.async {
+            self.stopInternal()
+        }
+    }
 
-    audioPlayerNode = nil
-    audioEngine = nil
-    bufferQueue.removeAll()
-    isPlaying = false
-    hasEnded = false
-  }
+    private func waitForBuffer() async throws {
+        print("Waiting for prebuffer...")
+        while getQueueSizeInBytes() < minBufferBytes && !hasEnded {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+    }
 
-  private func getQueueSizeInBytes() -> Int {
-    return bufferQueue.reduce(0) { $0 + $1.count }
-  }
+    private func startAudioEngine() async throws {
+        let format = AVAudioFormat(standardFormatWithSampleRate: 24000, channels: 1)!
+        engine.attach(playerNode)
+        engine.connect(playerNode, to: engine.mainMixerNode, format: format)
+
+        try engine.start()
+        playerNode.play()
+        print("AudioEngine started and playing")
+    }
+
+    private func writeLoop() async {
+        while isPlaying {
+            var dataChunk: Data?
+
+            pcmQueue.sync {
+                if !self.bufferQueue.isEmpty {
+                    dataChunk = self.bufferQueue.removeFirst()
+                }
+            }
+
+            if let dataChunk = dataChunk {
+                let frameLength = UInt32(dataChunk.count) / 2
+                let audioFormat = AVAudioFormat(standardFormatWithSampleRate: 24000, channels: 1)!
+                guard let buffer = AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: frameLength) else {
+                    print("Failed to create AVAudioPCMBuffer")
+                    continue
+                }
+                buffer.frameLength = frameLength
+                dataChunk.withUnsafeBytes { ptr in
+                    if let baseAddr = ptr.baseAddress {
+                        memcpy(buffer.int16ChannelData![0], baseAddr, Int(buffer.frameLength) * 2)
+                    }
+                }
+                playerNode.scheduleBuffer(buffer, completionHandler: nil)
+                continue
+            }
+
+            for _ in 0..<100 {
+                if getQueueSizeInBytes() > 0 { break }
+                try? await Task.sleep(nanoseconds: 10_000_000)
+            }
+
+            if getQueueSizeInBytes() == 0 {
+                print("No more data, exiting playback")
+                break
+            }
+        }
+    }
+
+    private func stopInternal() {
+        print("Cleaning up player")
+        playerNode.stop()
+        engine.stop()
+        engine.reset()
+        pcmQueue.sync {
+            bufferQueue.removeAll()
+        }
+        isPlaying = false
+        hasEnded = false
+    }
+
+    private func getQueueSizeInBytes() -> Int {
+        pcmQueue.sync {
+            return bufferQueue.reduce(0) { $0 + $1.count }
+        }
+    }
 }
