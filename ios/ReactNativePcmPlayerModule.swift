@@ -37,6 +37,7 @@ public class ReactNativePcmPlayerModule: Module {
   private var isPlaying = false
   private var hasEnded = false
   private let minBufferBytes = 50_000
+  private var scheduledBufferCount = 0
 
   func enqueuePcmData(_ data: Data, onStatus: @escaping (String) -> Void) {
     pcmQueue.async {
@@ -44,8 +45,8 @@ public class ReactNativePcmPlayerModule: Module {
 
       if !self.isPlaying {
         self.isPlaying = true
-        self.hasEnded = false
-        print("Starting new playback")
+        
+        print(">>> Starting new playback")
         Task {
           await self.waitForBuffer()
           self.startAudioEngine()
@@ -56,21 +57,21 @@ public class ReactNativePcmPlayerModule: Module {
   }
 
   func markAsEnded() {
-    print("Marking as ended")
+    print(">>> Marking as ended")
     pcmQueue.async {
       self.hasEnded = true
     }
   }
 
   func stopAndRelease() {
-    print("Stop requested")
+    print(">>> Stop requested")
     pcmQueue.async {
       self.stopInternal()
     }
   }
 
   private func waitForBuffer() async {
-    print("Waiting for prebuffer...")
+    print(">>> Waiting for prebuffer...")
     while getQueueSizeInBytes() < minBufferBytes && !hasEnded {
       try? await Task.sleep(nanoseconds: 10_000_000)
     }
@@ -95,9 +96,9 @@ public class ReactNativePcmPlayerModule: Module {
       playerNode.play()
       self.audioEngine = engine
       self.audioPlayerNode = playerNode
-      print("AudioEngine started")
+      print(">>> AudioEngine started")
     } catch {
-      print("Error starting audio engine: \(error)")
+      print(">>> Error starting audio engine: \(error)")
     }
   }
 
@@ -110,23 +111,33 @@ public class ReactNativePcmPlayerModule: Module {
             if !self.bufferQueue.isEmpty { break }
           }
           if self.bufferQueue.isEmpty {
-            print("No more data, exiting playback")
-            self.isPlaying = false
+            print(">>> No more data, exiting playback")
+            break
           }
-          return
+          continue
         }
 
         let data = self.bufferQueue.removeFirst()
         if let buffer = self.pcmBuffer(from: data) {
-          self.audioPlayerNode?.scheduleBuffer(buffer, completionHandler: nil)
+          self.scheduledBufferCount += 1
+          self.audioPlayerNode?.scheduleBuffer(buffer, completionHandler: {
+            self.pcmQueue.async {
+                self.scheduledBufferCount -= 1
+                if self.bufferQueue.isEmpty && self.scheduledBufferCount == 0 {
+                    print(">>> Playback fully completed")
+                    onStatus("listening")
+                    self.stopInternal()
+                }
+            }
+          })
         }
       }
-
-      self.stopInternal()
-      onStatus("listening")
     }
   }
 
+  /** 
+   * This function is to convert 16 bit audio format into 32 bit
+   */
   private func pcmBuffer(from data: Data) -> AVAudioPCMBuffer? {
     let frameCount = UInt32(data.count) / 2
     guard let format = audioPlayerNode?.outputFormat(forBus: 0),
@@ -148,7 +159,7 @@ public class ReactNativePcmPlayerModule: Module {
   }
 
   private func stopInternal() {
-    print("Cleaning up player")
+    print(">>> Cleaning up player")
     audioPlayerNode?.stop()
     audioEngine?.stop()
     audioEngine?.reset()

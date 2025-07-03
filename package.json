@@ -1,6 +1,6 @@
 {
   "name": "react-native-pcm-player",
-  "version": "0.2.10",
+  "version": "0.2.11",
   "description": "For streaming audio in pcm format in react native",
   "main": "build/index.js",
   "types": "build/index.d.ts",
