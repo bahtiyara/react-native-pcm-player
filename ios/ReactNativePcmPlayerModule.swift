@@ -42,6 +42,7 @@ public class ReactNativePcmPlayerModule: Module {
   func enqueuePcmData(_ data: Data, onStatus: @escaping (String) -> Void) {
     pcmQueue.async {
       self.bufferQueue.append(data)
+      self.hasEnded = false
 
       if !self.isPlaying {
         self.isPlaying = true
@@ -106,9 +107,11 @@ public class ReactNativePcmPlayerModule: Module {
     Task.detached {
       while self.isPlaying {
         guard !self.bufferQueue.isEmpty else {
-          for _ in 0..<100 {
+          for _ in 0..<500 {
             try? await Task.sleep(nanoseconds: 10_000_000)
-            if !self.bufferQueue.isEmpty { break }
+            if !self.bufferQueue.isEmpty || self.hasEnded { 
+              break
+            }
           }
           if self.bufferQueue.isEmpty {
             print(">>> No more data, exiting playback")
