@@ -185,11 +185,14 @@ public class ReactNativePcmPlayerModule: Module {
         }
         
         if let buffer = await self.pcmBuffer(from:data), let node = await self.state.audioPlayerNode {
+          await self.state.increseScheduledBufferCount()
           await self.scheduleBufferAsync(playerNode: node, buffer: buffer)
+          await self.state.decreaseScheduledBufferCount()
           let isBufferEmpty = await self.state.bufferQueue.isEmpty
+          let isScheduledBufferEmpty = await self.state.scheduledBufferCount == 0
           let isEnded = await self.state.hasEnded
         
-          if isBufferEmpty && isEnded {
+          if isBufferEmpty && isEnded && isScheduledBufferEmpty {
               print(">>> Playback fully completed")
               onStatus("listening")
               await self.stopInternal()
