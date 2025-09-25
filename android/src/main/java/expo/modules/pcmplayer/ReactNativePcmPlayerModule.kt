@@ -20,7 +20,7 @@ object CurrentAudioPlayer {
     private const val MIN_BUFFER_BYTES = 50_000
     private val scope = CoroutineScope(Dispatchers.IO)
 
-    fun enqueuePcmData(data: ByteArray, onStatus: (String) -> Unit) {
+    fun enqueuePcmData(data: ByteArray, sampleRate: Int, onStatus: (String) -> Unit) {
         pcmQueue.offer(data)
 
         if (isPlaying.compareAndSet(false, true)) {
@@ -28,7 +28,7 @@ object CurrentAudioPlayer {
             playbackJob = scope.launch {
                 try {
                     waitForBuffer()
-                    startAudioTrack()
+                    startAudioTrack(sampleRate)
                     writeLoop()
                 } catch (e: Exception) {
                     println("Playback error: ${e.message}")
@@ -59,8 +59,7 @@ object CurrentAudioPlayer {
         }
     }
 
-    private fun startAudioTrack() {
-        val sampleRate = 24000
+    private fun startAudioTrack(sampleRate: Int) {
         val minBufSize = AudioTrack.getMinBufferSize(
             sampleRate,
             AudioFormat.CHANNEL_OUT_MONO,
@@ -132,9 +131,9 @@ class ReactNativePcmPlayerModule : Module() {
         Events("onMessage")
         Events("onStatus")
 
-        Function("enqueuePcm") { base64Data: String ->
+        Function("enqueuePcm") { base64Data: String, sampleRate: Int = 24000 ->
             val pcmData = Base64.decode(base64Data, Base64.DEFAULT)
-            CurrentAudioPlayer.enqueuePcmData(pcmData) { status ->
+            CurrentAudioPlayer.enqueuePcmData(pcmData, sampleRate) { status ->
                 sendEvent("onStatus", mapOf("status" to status))
             }
         }

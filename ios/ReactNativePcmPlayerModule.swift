@@ -8,9 +8,9 @@ public class ReactNativePcmPlayerModule: Module {
 
     Events("onMessage", "onStatus")
 
-    Function("enqueuePcm") { (base64Data: String) in
+    Function("enqueuePcm") { (base64Data: String, sampleRate: Int = 24000) in
       Task {
-        await CurrentAudioPlayer.shared.enqueuePcmData(base64Data) { status in
+        await CurrentAudioPlayer.shared.enqueuePcmData(base64Data, sampleRate) { status in
           self.sendEvent("onStatus", [
             "status": status
           ])
@@ -90,7 +90,7 @@ public class ReactNativePcmPlayerModule: Module {
   private let state = State()
   private let minBufferBytes = 50_000
 
-  func enqueuePcmData(_ b64Str: String, onStatus: @escaping (String) -> Void) async {
+  func enqueuePcmData(_ b64Str: String, sampleRate: Int, onStatus: @escaping (String) -> Void) async {
     guard let data = Data(base64Encoded: b64Str) else {
       return
     }
@@ -104,7 +104,7 @@ public class ReactNativePcmPlayerModule: Module {
       print(">>> Starting new playback")
       
       await self.waitForBuffer()
-      await self.startAudioEngine()
+      await self.startAudioEngine(sampleRate: sampleRate)
       self.writeLoop(onStatus: onStatus)
     }
   }
@@ -140,14 +140,14 @@ public class ReactNativePcmPlayerModule: Module {
     }
   }
 
-  private func startAudioEngine() async {
+  private func startAudioEngine(sampleRate: Int) async {
     let engine = AVAudioEngine()
     let playerNode = AVAudioPlayerNode()
     engine.attach(playerNode)
 
     let format = AVAudioFormat(
       commonFormat: .pcmFormatFloat32,
-      sampleRate: 24000,
+      sampleRate: Double(sampleRate),
       channels: 1,
       interleaved: true
     )!
